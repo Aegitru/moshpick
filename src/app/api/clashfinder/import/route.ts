@@ -4,20 +4,20 @@ import { normalizeArtistName } from '@/lib/utils'
 
 interface ClashfinderEvent {
   name: string
-  location: string
+  short: string
   start: string
   end: string
 }
 
 interface ClashfinderLocation {
   name: string
+  events: ClashfinderEvent[]
 }
 
 interface ClashfinderData {
   name: string
   lastEdit: string
   locations: ClashfinderLocation[]
-  events: ClashfinderEvent[]
 }
 
 export async function POST(request: NextRequest) {
@@ -49,9 +49,8 @@ export async function POST(request: NextRequest) {
   }
 
   const locations = cfData.locations ?? []
-  const events = cfData.events ?? []
 
-  // Upsert stages
+  // Upsert stages (events are nested inside each location)
   const stageMap: Record<string, string> = {} // stage name -> stage id
   for (let i = 0; i < locations.length; i++) {
     const loc = locations[i]
@@ -76,7 +75,7 @@ export async function POST(request: NextRequest) {
 
   // Load existing artists in DB for matching
   const { data: existingArtists } = await supabase.from('artists').select('id, name')
-  const artistNormMap: Record<string, string> = {} // normalized name -> id
+  const artistNormMap: Record<string, string> = {}
   for (const a of existingArtists ?? []) {
     artistNormMap[normalizeArtistName(a.name)] = a.id
   }
@@ -84,33 +83,32 @@ export async function POST(request: NextRequest) {
   let created = 0
   let updated = 0
   let conflicts: string[] = []
+  let totalEvents = 0
 
-  for (const event of events) {
-    const artistName = event.name?.trim()
-    if (!artistName) continue
+  // Events are nested inside each location
+  for (const location of locations) {
+    const stageName = location.name
+    const stageId = stageMap[stageName] ?? null
 
-    // Parse day from start time (Clashfinder format: "2026-06-19 16:00")
-    const startStr = event.start ?? ''
-    const endStr = event.end ?? ''
-    const [dayPart, startTimePart] = startStr.split(' ')
-    const [, endTimePart] = endStr.split(' ')
+    for (const event of location.events ?? []) {
+      totalEvents++
+      const artistName = event.name?.trim()
+      if (!artistName) continue
 
-    const stageName = event.location
-    const stageId = stageName ? stageMap[stageName] ?? null : null
+      // Parse "2026-06-18 16:00" → day + time
+      const startStr = event.start ?? ''
+      const endStr = event.end ?? ''
+      const spaceIdx = startStr.indexOf(' ')
+      const dayPart = spaceIdx > 0 ? startStr.slice(0, spaceIdx) : null
+      const startTimePart = spaceIdx > 0 ? startStr.slice(spaceIdx + 1) : null
+      const endSpaceIdx = endStr.indexOf(' ')
+      const endTimePart = endSpaceIdx > 0 ? endStr.slice(endSpaceIdx + 1) : null
 
-    // Find or create artist
-    const normalized = normalizeArtistName(artistName)
-    let artistId = artistNormMap[normalized]
+      // Find or create artist
+      const normalized = normalizeArtistName(artistName)
+      let artistId = artistNormMap[normalized]
 
-    if (!artistId) {
-      // Check fuzzy match (simple: first 6 chars)
-      const fuzzyKey = normalized.slice(0, 6)
-      const fuzzyMatch = Object.keys(artistNormMap).find(k => k.slice(0, 6) === fuzzyKey && k !== normalized)
-      if (fuzzyMatch) {
-        conflicts.push(`"${artistName}" possible doublon de "${existingArtists?.find(a => a.id === artistNormMap[fuzzyMatch])?.name}"`)
-        artistId = artistNormMap[fuzzyMatch]
-      } else {
-        // Create new artist
+      if (!artistId) {
         const { data: newArtist } = await supabase
           .from('artists')
           .insert({ name: artistName })
@@ -122,21 +120,20 @@ export async function POST(request: NextRequest) {
           created++
         }
       }
+
+      if (!artistId) continue
+
+      const { error } = await supabase.from('edition_artists').upsert({
+        edition_id: editionId,
+        artist_id: artistId,
+        stage_id: stageId,
+        day: dayPart,
+        start_time: startTimePart,
+        end_time: endTimePart,
+      }, { onConflict: 'edition_id,artist_id,day,start_time' })
+
+      if (!error) updated++
     }
-
-    if (!artistId) continue
-
-    // Upsert edition_artist
-    const { error } = await supabase.from('edition_artists').upsert({
-      edition_id: editionId,
-      artist_id: artistId,
-      stage_id: stageId,
-      day: dayPart || null,
-      start_time: startTimePart || null,
-      end_time: endTimePart || null,
-    }, { onConflict: 'edition_id,artist_id,day,start_time' })
-
-    if (!error) updated++
   }
 
   // Update edition with clashfinder metadata
@@ -148,7 +145,7 @@ export async function POST(request: NextRequest) {
 
   return Response.json({
     success: true,
-    totalEvents: events.length,
+    totalEvents,
     stagesCreated: Object.keys(stageMap).length,
     artistsCreated: created,
     artistsUpdated: updated,

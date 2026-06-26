@@ -21,8 +21,10 @@ export async function GET(request: NextRequest) {
     const data = await res.json()
     if (data.error) return Response.json({ error: `Clashfinder: ${data.error}` }, { status: 404 })
 
-    const artistCount = Array.isArray(data.events) ? data.events.length : 0
-    const stageCount = Array.isArray(data.locations) ? data.locations.length : 0
+    // Events are nested inside each location, not at root level
+    const locations = Array.isArray(data.locations) ? data.locations : []
+    const stageCount = locations.length
+    const artistCount = locations.reduce((sum: number, loc: any) => sum + (Array.isArray(loc.events) ? loc.events.length : 0), 0)
 
     return Response.json({
       name: data.name ?? slug,
