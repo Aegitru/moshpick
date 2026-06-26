@@ -21,7 +21,7 @@ export default function Navigation() {
   useEffect(() => {
     if (!currentUser) return
     loadEditions()
-  }, [currentUser, currentGroup])
+  }, [currentUser, currentGroup, pathname])
 
   async function loadEditions() {
     if (!currentGroup) return

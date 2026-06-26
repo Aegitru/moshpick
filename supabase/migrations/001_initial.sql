@@ -185,6 +185,7 @@ CREATE POLICY "Users can manage their picks" ON public.user_concert_picks FOR AL
 CREATE POLICY "Users can read all picks" ON public.user_concert_picks FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Users can manage their activity blocks" ON public.user_activity_blocks FOR ALL TO authenticated USING (auth.uid() = user_id);
 CREATE POLICY "Users can read group editions" ON public.group_editions FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Users manage group editions" ON public.group_editions FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Users can manage concert reviews" ON public.concert_reviews FOR ALL TO authenticated USING (auth.uid() = user_id);
 CREATE POLICY "Users can read concert reviews" ON public.concert_reviews FOR SELECT TO authenticated USING (true);
 
