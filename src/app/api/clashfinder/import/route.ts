@@ -32,15 +32,20 @@ export async function POST(request: NextRequest) {
   const { data: edition } = await supabase.from('editions').select('id, festival_id').eq('id', editionId).single()
   if (!edition) return Response.json({ error: 'Edition not found' }, { status: 404 })
 
+  const username = process.env.CLASHFINDER_USERNAME
+  const publicKey = process.env.CLASHFINDER_PUBLIC_KEY
+  if (!username || !publicKey) return Response.json({ error: 'Clashfinder credentials not configured' }, { status: 500 })
+
   // Fetch Clashfinder data
   let cfData: ClashfinderData
   try {
-    const url = `https://clashfinder.com/data/event/${encodeURIComponent(slug)}.json`
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
+    const url = `https://clashfinder.com/data/event/${encodeURIComponent(slug)}.json?authUsername=${username}&authPublicKey=${publicKey}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(30000) })
     if (!res.ok) throw new Error('Clashfinder fetch failed')
     cfData = await res.json()
+    if ((cfData as any).error) throw new Error((cfData as any).error)
   } catch (e) {
-    return Response.json({ error: 'Failed to fetch Clashfinder data' }, { status: 502 })
+    return Response.json({ error: `Failed to fetch Clashfinder data: ${(e as Error).message}` }, { status: 502 })
   }
 
   const locations = cfData.locations ?? []
