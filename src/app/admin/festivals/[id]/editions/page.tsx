@@ -90,7 +90,10 @@ export default function AdminEditionsPage({ params }: { params: Promise<{ id: st
       body: JSON.stringify({ editionId: edition.id, slug: edition.clashfinder_slug }),
     })
     const result = await res.json()
-    alert(res.ok ? `Import réussi: ${result.artistCount} artistes, ${result.stageCount} scènes.` : `Erreur: ${result.error}`)
+    alert(res.ok
+      ? `Import réussi ✓\n${result.stagesCreated} scènes · ${result.artistsCreated} artistes créés · ${result.artistsUpdated} slots horaires${result.conflicts?.length ? `\n⚠ ${result.conflicts.length} conflits à vérifier` : ''}`
+      : `Erreur: ${result.error}`
+    )
     setImporting(null)
     loadData()
   }
