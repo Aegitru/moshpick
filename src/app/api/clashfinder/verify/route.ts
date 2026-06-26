@@ -21,7 +21,6 @@ export async function GET(request: NextRequest) {
     const data = await res.json()
     if (data.error) return Response.json({ error: `Clashfinder: ${data.error}` }, { status: 404 })
 
-    const data = await res.json()
     const artistCount = Array.isArray(data.events) ? data.events.length : 0
     const stageCount = Array.isArray(data.locations) ? data.locations.length : 0
 
