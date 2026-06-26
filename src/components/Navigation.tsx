@@ -53,11 +53,11 @@ export default function Navigation() {
     : false
 
   const navLinks = [
-    { href: '/dashboard', label: 'Dashboard', icon: Music2 },
-    { href: selectedEditionId ? `/lineup/${selectedEditionId}` : '/dashboard', label: 'Lineup', icon: Music2 },
-    { href: selectedEditionId ? `/planning/${selectedEditionId}` : '/dashboard', label: 'Planning', icon: Calendar },
-    { href: selectedEditionId ? `/my-day/${selectedEditionId}` : '/dashboard', label: 'Ma Journée', icon: Map },
-    { href: '/group', label: 'Groupe', icon: Users },
+    { href: '/dashboard', label: 'Dashboard', icon: Music2, requiresEdition: false },
+    { href: selectedEditionId ? `/lineup/${selectedEditionId}` : null, label: 'Lineup', icon: Music2, requiresEdition: true },
+    { href: selectedEditionId ? `/planning/${selectedEditionId}` : null, label: 'Planning', icon: Calendar, requiresEdition: true },
+    { href: selectedEditionId ? `/my-day/${selectedEditionId}` : null, label: 'Ma Journée', icon: Map, requiresEdition: true },
+    { href: '/group', label: 'Groupe', icon: Users, requiresEdition: false },
   ]
 
   if (!currentUser) return null
@@ -100,20 +100,23 @@ export default function Navigation() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-1">
-            {navLinks.map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  pathname === href || pathname.startsWith(href.split('/').slice(0, 2).join('/') + '/')
-                    ? 'bg-purple-600 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
-                )}
-              >
-                {label}
-              </Link>
-            ))}
+            {navLinks.map(({ href, label, requiresEdition }) => {
+              if (!href) return (
+                <span key={label} title="Sélectionne une édition d'abord"
+                  className="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 cursor-not-allowed">
+                  {label}
+                </span>
+              )
+              const isActive = pathname === href || pathname.startsWith(href.split('/').slice(0, 3).join('/') + '/')
+              return (
+                <Link key={href} href={href}
+                  className={cn('px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    isActive ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
+                  )}>
+                  {label}
+                </Link>
+              )
+            })}
 
             {/* Admin dropdown */}
             <div className="relative">
@@ -158,16 +161,16 @@ export default function Navigation() {
       {menuOpen && (
         <div className="md:hidden border-t border-[#2a2a2a] bg-[#111]">
           <div className="px-4 py-3 space-y-1">
-            {navLinks.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setMenuOpen(false)}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+            {navLinks.map(({ href, label, icon: Icon }) => !href ? (
+              <span key={label} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600">
+                <Icon className="w-4 h-4" />
+                {label}
+              </span>
+            ) : (
+              <Link key={href} href={href} onClick={() => setMenuOpen(false)}
+                className={cn('flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                   pathname.startsWith(href) ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
-                )}
-              >
+                )}>
                 <Icon className="w-4 h-4" />
                 {label}
               </Link>
